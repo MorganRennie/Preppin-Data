@@ -47,9 +47,9 @@ FROM TIL_PLAYGROUND.PREPPIN_DATA_INPUTS.PD2023_WK03_TARGETS
              FOR QUARTER IN ( Q1, Q2, Q3, Q4) )
 ORDER BY QUARTER, ONLINE_OR_IN_PERSON;
 
-<h1 style="font-weight:normal">
-  Final Solution
-</h1>
+
+---------------------------------------------------------------------------------------------------
+// Final Solution
 
 //JOIN THE TWO DATA SETS TOGETHER
 WITH TARGETS AS (
