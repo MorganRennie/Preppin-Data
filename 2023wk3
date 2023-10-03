@@ -1,0 +1,86 @@
+-- Inputs
+-- 1. The same transactions file as the first week's 
+
+SELECT * FROM 
+TIL_PLAYGROUND.PREPPIN_DATA_INPUTS.PD2023_WK01;
+
+-- 2. Quarterly Targets dataset
+SELECT *
+FROM TIL_PLAYGROUND.PREPPIN_DATA_INPUTS.PD2023_WK03_TARGETS;
+
+/*
+-- Requirements
+- Input the data
+- For the transactions file:
+    - Filter the transactions to just look at DSB (help)
+        - These will be transactions that contain DSB in the Transaction Code field
+    - Rename the values in the Online or In-person field, Online of the 1 values and In-Person for the 2 values
+    - Change the date to be the quarter (help)
+    - Sum the transaction values for each quarter and for each Type of Transaction (Online or In-Person) (help)
+- For the targets file:
+    - Pivot the quarterly targets so we have a row for each Type of Transaction and each Quarter (help)
+    - Rename the fields
+    - Remove the 'Q' from the quarter field and make the data type numeric (help)
+- Join the two datasets together (help)
+    - You may need more than one join clause!
+- Remove unnecessary fields
+- Calculate the Variance to Target for each row (help)
+- Output the data
+*/
+// FOR THE TRANSACTION FILE:
+SELECT 
+    TO_NUMBER(DATE_PART('QUARTER',TRY_TO_DATE(LEFT(TRANSACTION_DATE,10),'DD/MM/YYYY'))) AS QUARTER,
+    (CASE WHEN ONLINE_OR_IN_PERSON='1' THEN 'ONLINE' ELSE 'IN-PERSON' END) AS ONLINE_OR_IN_PERSON,
+    SUM(VALUE) AS TOTAL_TRANSACTION_VALUE
+FROM TIL_PLAYGROUND.PREPPIN_DATA_INPUTS.PD2023_WK01
+WHERE TRANSACTION_CODE LIKE '%DSB%'
+GROUP BY QUARTER, ONLINE_OR_IN_PERSON
+ORDER BY QUARTER, ONLINE_OR_IN_PERSON;
+
+// FOR THE TARGETS FILE
+SELECT
+    TO_NUMBER(RIGHT(QUARTER,1)) AS QUARTER,
+    ONLINE_OR_IN_PERSON,
+    TARGET
+FROM TIL_PLAYGROUND.PREPPIN_DATA_INPUTS.PD2023_WK03_TARGETS
+   UNPIVOT ( TARGET
+             FOR QUARTER IN ( Q1, Q2, Q3, Q4) )
+ORDER BY QUARTER, ONLINE_OR_IN_PERSON;
+
+<h1 style="font-weight:normal">
+  Final Solution
+</h1>
+
+//JOIN THE TWO DATA SETS TOGETHER
+WITH TARGETS AS (
+SELECT
+    TO_NUMBER(RIGHT(QUARTER,1)) AS QUARTER,
+    ONLINE_OR_IN_PERSON,
+    TARGET
+FROM TIL_PLAYGROUND.PREPPIN_DATA_INPUTS.PD2023_WK03_TARGETS
+   UNPIVOT ( TARGET
+             FOR QUARTER IN ( Q1, Q2, Q3, Q4) )
+),
+
+TRANSACTIONS AS (
+SELECT 
+    TO_NUMBER(DATE_PART('QUARTER',TRY_TO_DATE(LEFT(TRANSACTION_DATE,10),'DD/MM/YYYY'))) AS QUARTER,
+    (CASE WHEN ONLINE_OR_IN_PERSON='1' THEN 'Online' ELSE 'In-Person' END) AS ONLINE_OR_IN_PERSON,
+    SUM(VALUE) AS TOTAL_TRANSACTION_VALUE
+FROM TIL_PLAYGROUND.PREPPIN_DATA_INPUTS.PD2023_WK01
+WHERE TRANSACTION_CODE LIKE '%DSB%'
+GROUP BY QUARTER, ONLINE_OR_IN_PERSON
+)
+SELECT 
+TG.QUARTER,
+TG.ONLINE_OR_IN_PERSON,
+TOTAL_TRANSACTION_VALUE AS VALUE,
+TARGET AS QUARTERLY_TARGET,
+SUM(TOTAL_TRANSACTION_VALUE-TARGET) AS VARIANCE_TO_TARGET
+FROM TRANSACTIONS AS TR
+    FULL JOIN TARGETS AS TG
+        ON 
+        TR.QUARTER = TG.QUARTER
+        AND
+        TR.ONLINE_OR_IN_PERSON = TG.ONLINE_OR_IN_PERSON
+GROUP BY TG.QUARTER,TG.ONLINE_OR_IN_PERSON, VALUE, QUARTERLY_TARGET
